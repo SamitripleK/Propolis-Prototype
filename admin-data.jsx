@@ -17,6 +17,14 @@ const AMENITY_CATALOG = {
   room:      ["Bed","Wardrobe","Desk","Chair","Attached Bathroom","Window","Air Conditioning","Fan","Internet","Power Backup"],
 };
 
+/* Demo brand/manufacturer per amenity — shown on amenity cards */
+const AMENITY_BRANDS = {
+  "Dishwasher":"Bosch","Washing Machine":"LG","Smart TV":"Samsung","Air Conditioning":"Daikin",
+  "Heating":"Honeywell","Internet":"Xfinity","Elevator":"Otis","Laundry":"Speed Queen",
+  "Gym":"Technogym","24/7 Security":"ADT","Swimming Pool":"Pentair","Kitchen":"Whirlpool",
+  "Fan":"Hunter","Power Backup":"Generac","Bed":"IKEA","Wardrobe":"IKEA","Desk":"IKEA","Chair":"Herman Miller",
+};
+
 const money = (n) => "$" + Math.round(n).toLocaleString("en-US");
 const A = (icon, tone, title, detail, time) => ({ icon, tone, title, detail, time });
 
@@ -419,4 +427,4 @@ BUILDINGS.forEach(b => {
   });
 });
 
-Object.assign(window, { BUILDINGS, AMENITY_ICONS, AMENITY_CATALOG, money });
+Object.assign(window, { BUILDINGS, AMENITY_ICONS, AMENITY_CATALOG, AMENITY_BRANDS, money });

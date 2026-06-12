@@ -47,7 +47,27 @@ function ModalPortal({ sm, lg, onClose, children }) {
 /* ─── Amenity chip picker ───────────────────────────────────────────────────── */
 function AmenChips({ catalog, selected, onChange }) {
   const items = MODAL_AMENITIES[catalog] || [];
+  const [adding, setAdding] = useStateM(false);
+  const [newName, setNewName] = useStateM("");
   const toggle = (a) => onChange(selected.includes(a) ? selected.filter(x => x !== a) : [...selected, a]);
+
+  const commitNew = () => {
+    const nm = newName.trim();
+    if (!nm) { setAdding(false); setNewName(""); return; }
+    const match = items.find(x => x.toLowerCase() === nm.toLowerCase());
+    if (match) {
+      if (!selected.includes(match)) onChange([...selected, match]);
+    } else {
+      items.push(nm);
+      /* keep the assign-amenities catalog in sync */
+      const cat = window.AMENITY_CATALOG && AMENITY_CATALOG[catalog];
+      if (cat && !cat.some(x => x.toLowerCase() === nm.toLowerCase())) cat.push(nm);
+      onChange([...selected, nm]);
+    }
+    setNewName("");
+    setAdding(false);
+  };
+
   return (
     <div className="amen-chips">
       {items.map(a => (
@@ -57,6 +77,29 @@ function AmenChips({ catalog, selected, onChange }) {
           {selected.includes(a) && <AIcon name="check" size={12} />}{a}
         </button>
       ))}
+      {adding ? (
+        <span className="chip" style={{ display:"inline-flex", alignItems:"center", gap:6 }}>
+          <input autoFocus value={newName} placeholder="New amenity…"
+            onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter") { e.preventDefault(); commitNew(); }
+              if (e.key === "Escape") { e.stopPropagation(); setAdding(false); setNewName(""); }
+            }}
+            style={{ border:0, outline:0, background:"transparent", font:"inherit", color:"var(--ink)", width:120 }} />
+          <button type="button" onClick={commitNew} title="Add"
+            style={{ border:0, background:"transparent", cursor:"pointer", color:"var(--green)", display:"flex" }}>
+            <AIcon name="check" size={13} />
+          </button>
+          <button type="button" onClick={() => { setAdding(false); setNewName(""); }} title="Cancel"
+            style={{ border:0, background:"transparent", cursor:"pointer", color:"var(--muted)", display:"flex" }}>
+            <AIcon name="x" size={13} />
+          </button>
+        </span>
+      ) : (
+        <button type="button" className="chip" style={{ borderStyle:"dashed" }} onClick={() => setAdding(true)}>
+          <AIcon name="plus" size={12} /> Add new
+        </button>
+      )}
     </div>
   );
 }
@@ -366,8 +409,6 @@ function BuildingModal({ mode, building: init, onSave, onClose }) {
 
       <div className="modal-footer">
         <button className="btn btn-soft" onClick={onClose}>Cancel</button>
-        <button className="btn btn-soft" onClick={() => { if (valid) { onSave({ ...form, apartments, draft: true }); onClose(); } }} disabled={!valid}
-          style={{ opacity: valid ? 1 : .45 }}>Save as draft</button>
         <button className="btn btn-primary" onClick={handleSave} disabled={!valid}
           style={{ opacity: valid ? 1 : .45 }}>
           <AIcon name={isEdit ? "check" : "plus"} size={15} />{isEdit ? "Save changes" : "Save building"}

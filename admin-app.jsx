@@ -82,7 +82,8 @@ function App() {
       onHome={home} onOpenBuilding={openBuilding} onBack={backToBuilding} onOpenRoom={openRoom} />;
   } else if (building) {
     view = <Views.BuildingDetail key={building.id} building={building}
-      onHome={home} onBack={home} onOpenApartment={openApartment} />;
+      onHome={home} onBack={home} onOpenApartment={openApartment}
+      onOpenRoom={(aptId, roomId) => { setAptId(aptId); setRoomId(roomId); scrollTop(); }} />;
   } else {
     view = <Views.PropertiesList onOpenBuilding={openBuilding} />;
   }

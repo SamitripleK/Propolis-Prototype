@@ -537,11 +537,13 @@ function PropertiesList({ onOpenBuilding }) {
 }
 
 /* ───────────────────────── Building Detail ───────────────────────── */
-function BuildingDetail({ building: b, onBack, onHome, onOpenApartment }) {
+function BuildingDetail({ building: b, onBack, onHome, onOpenApartment, onOpenRoom }) {
   const [sec, setSec]               = useStateV("apartments");
   const [modal, setModal]           = useStateV(null);
   const [amenities, setAmenities]   = useStateV(() => initAmenities(b.amenities.present));
   const [amenityAdd, setAmenityAdd] = useStateV(false);
+  const [openApts, setOpenApts]     = useStateV({});
+  const toggleApt = (id) => setOpenApts(p => ({ ...p, [id]: !p[id] }));
   const { toasts, showToast }       = useToast();
   const close = () => setModal(null);
 
@@ -554,6 +556,7 @@ function BuildingDetail({ building: b, onBack, onHome, onOpenApartment }) {
   ];
 
   const aptMenu = (a) => ([
+    { label: "View apartment details", icon: "building", onClick: () => onOpenApartment(a.id) },
     { label: "Add room",          icon: "plus",  onClick: () => setModal({ type: "add-room",          apt: a }) },
     { label: "Edit apartment",    icon: "edit",  onClick: () => setModal({ type: "edit-apartment",    apt: a }) },
     { sep: true },
@@ -628,32 +631,64 @@ function BuildingDetail({ building: b, onBack, onHome, onOpenApartment }) {
             <div className="child-table">
               {b.apartments.map(a => {
                 const pct = Math.round((a.occupiedRooms / Math.max(a.totalRooms,1)) * 100);
+                const open = !!openApts[a.id];
                 return (
-                  <div className="child-row" key={a.id} role="button" tabIndex={0}
-                    style={{ gridTemplateColumns: childCols }}
-                    onClick={() => onOpenApartment(a.id)}
-                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenApartment(a.id); } }}>
-                    <div className="cr-primary">
-                      <b style={{ fontFamily:"var(--sans)", fontWeight:600, fontSize:15 }}>{a.name}</b>
-                      <span>{a.floor} · {a.layout || (a.totalRooms + " rooms")}</span>
+                  <React.Fragment key={a.id}>
+                    <div className="child-row" role="button" tabIndex={0}
+                      style={{ gridTemplateColumns: childCols }}
+                      onClick={() => toggleApt(a.id)}
+                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleApt(a.id); } }}>
+                      <div className="cr-primary">
+                        <b style={{ fontFamily:"var(--sans)", fontWeight:600, fontSize:15 }}>{a.name}</b>
+                        <span>{a.floor} · {a.layout || (a.totalRooms + " rooms")}</span>
+                      </div>
+                      <div className="cr-cell"><span className="l">Rooms</span><span className="v">{a.totalRooms}</span></div>
+                      <div className="cr-cell">
+                        <span className="l">LTR</span>
+                        <span className="v" style={{ color:"var(--green)" }}>{a.ltrCount}</span>
+                      </div>
+                      <div className="cr-cell">
+                        <span className="l">STR</span>
+                        <span className="v" style={{ color:"var(--teal)" }}>{a.strCount}</span>
+                      </div>
+                      <div className="cr-cell">
+                        <span className="l">Occupancy</span>
+                        <span className="v">{a.occupiedRooms}/{a.totalRooms} · {pct}%</span>
+                      </div>
+                      <div><StatusTag status={a.status} tone={a.statusTone} /></div>
+                      <span className="cr-go">
+                        {open ? "Hide Rooms" : "Show Rooms"}
+                        <span style={{ display:"flex", transition:"transform .2s ease", transform: open ? "rotate(180deg)" : "none" }}>
+                          <AIcon name="chevron" size={13} />
+                        </span>
+                      </span>
+                      <span onClick={e => e.stopPropagation()}><ActionMenu items={aptMenu(a)} /></span>
                     </div>
-                    <div className="cr-cell"><span className="l">Rooms</span><span className="v">{a.totalRooms}</span></div>
-                    <div className="cr-cell">
-                      <span className="l">LTR</span>
-                      <span className="v" style={{ color:"var(--green)" }}>{a.ltrCount}</span>
-                    </div>
-                    <div className="cr-cell">
-                      <span className="l">STR</span>
-                      <span className="v" style={{ color:"var(--teal)" }}>{a.strCount}</span>
-                    </div>
-                    <div className="cr-cell">
-                      <span className="l">Occupancy</span>
-                      <span className="v">{a.occupiedRooms}/{a.totalRooms} · {pct}%</span>
-                    </div>
-                    <div><StatusTag status={a.status} tone={a.statusTone} /></div>
-                    <span className="cr-go">View Rooms<AIcon name="chevron" size={13} /></span>
-                    <span onClick={e => e.stopPropagation()}><ActionMenu items={aptMenu(a)} /></span>
-                  </div>
+                    {open && (
+                      <div style={{ padding:"2px 0 10px 26px", display:"flex", flexDirection:"column", gap:6 }}>
+                        {a.rooms.length === 0 ? (
+                          <div style={{ fontSize:13, color:"var(--muted)", padding:"6px 0" }}>
+                            No rooms in this apartment yet.
+                          </div>
+                        ) : a.rooms.map(r => (
+                          <div className="child-row" key={r.id} role="button" tabIndex={0}
+                            style={{ gridTemplateColumns:"minmax(0,1.4fr) 0.9fr 0.8fr 1fr 1fr auto", padding:"10px 14px" }}
+                            onClick={e => { e.stopPropagation(); onOpenRoom && onOpenRoom(a.id, r.id); }}
+                            onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onOpenRoom && onOpenRoom(a.id, r.id); } }}>
+                            <div className="cr-primary">
+                              <b style={{ fontFamily:"var(--sans)", fontWeight:600, fontSize:14 }}>{r.name}</b>
+                              <span>{r.housingType} · {r.bd}bd / {r.ba}ba</span>
+                            </div>
+                            <div className="cr-cell"><span className="l">Type</span><span className="v"><RentalBadge type={r.rentalType} /></span></div>
+                            <div className="cr-cell"><span className="l">Bed</span><span className="v">{r.bedSize || "—"}</span></div>
+                            <div className="cr-cell"><span className="l">Rent / mo</span><span className="v">{M(r.rent)}</span></div>
+                            <div><StatusTag status={r.status} tone={r.statusTone} /></div>
+                            <span className="cr-go">View<AIcon name="chevron" size={13} /></span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </div>

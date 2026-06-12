@@ -52,6 +52,7 @@ function initAmenities(names) {
   return (names || []).map(name => ({
     id: name,
     name,
+    brand: (window.AMENITY_BRANDS && window.AMENITY_BRANDS[name]) || "",
     category: "",
     icon: (window.AMENITY_ICONS && window.AMENITY_ICONS[name]) || "sparkle",
     description: "",
@@ -91,13 +92,14 @@ function AmenityModal({ mode, level, contextPath, amenity: init, existingNames, 
 
   const catalog = (window.AMENITY_CATALOG && AMENITY_CATALOG[level]) || [];
   const already = existingNames || [];
-  const blankForm = { name:"", category:"", icon:"sparkle", description:"", status:"Available", notes:"" };
+  const blankForm = { name:"", brand:"", category:"", icon:"sparkle", description:"", status:"Available", notes:"" };
 
   const [selected, setSelected] = useStateAm([]);
   const [custom, setCustom]     = useStateAm([]);
   const [showNew, setShowNew]   = useStateAm(false);
   const [form, setForm] = useStateAm(isEdit ? {
     name: init?.name || "",
+    brand: init?.brand || "",
     category: init?.category || "",
     icon: init?.icon || "sparkle",
     description: init?.description || "",
@@ -112,7 +114,9 @@ function AmenityModal({ mode, level, contextPath, amenity: init, existingNames, 
   };
 
   const fromCatalog = (n) => ({
-    name: n, category: "", icon: (window.AMENITY_ICONS || {})[n] || "sparkle",
+    name: n,
+    brand: (window.AMENITY_BRANDS || {})[n] || "",
+    category: "", icon: (window.AMENITY_ICONS || {})[n] || "sparkle",
     description: "", status: "Available", notes: "",
   });
 
@@ -174,24 +178,29 @@ function AmenityModal({ mode, level, contextPath, amenity: init, existingNames, 
           {nameErr && <div className="field-error">{nameErr}</div>}
         </div>
         <div className="field">
+          <label>Brand / company</label>
+          <input className="inp" placeholder="e.g. Bosch, LG, Samsung"
+            value={form.brand} onChange={e => set("brand", e.target.value)} />
+        </div>
+      </div>
+      <div className="modal-2col">
+        <div className="field">
           <label>Category</label>
           <select className="inp" value={form.category} onChange={e => set("category", e.target.value)}>
             <option value="">No category</option>
             {AMENITY_CATS.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
-      </div>
-      <div className="modal-2col">
         <div className="field">
           <label>Availability</label>
           <select className="inp" value={form.status} onChange={e => set("status", e.target.value)}>
             {AMENITY_STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
-        <div className="field">
-          <label>Description</label>
-          <input className="inp" placeholder="Short description (optional)" value={form.description} onChange={e => set("description", e.target.value)} />
-        </div>
+      </div>
+      <div className="field">
+        <label>Description</label>
+        <input className="inp" placeholder="Short description (optional)" value={form.description} onChange={e => set("description", e.target.value)} />
       </div>
       <div className="modal-section-title" style={{ marginTop: 4 }}>
         Icon
@@ -313,7 +322,10 @@ function AmenityCard({ amenity, onEdit, onRemove }) {
     <div className="amen-cell amen-mgd">
       <span className="ai"><AIcon name={amenity.icon || "sparkle"} size={17} /></span>
       <div className="amen-info">
-        <div className="amen-nm">{amenity.name}</div>
+        <div className="amen-nm">
+          {amenity.name}
+          {amenity.brand && <span className="amen-brand">{amenity.brand}</span>}
+        </div>
         <div className="amen-meta">
           {amenity.category && <span className="amen-cat">{amenity.category}</span>}
           <StatusTag status={amenity.status} tone={tone} />
