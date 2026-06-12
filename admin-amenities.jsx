@@ -84,7 +84,7 @@ function IconPicker({ value, onChange }) {
 function AmenityModal({ mode, level, contextPath, amenity: init, existingNames, onSave, onClose }) {
   const isEdit = mode === "edit";
   const levelLabel = level === "building" ? "building"
-    : level === "unit" ? "unit" : "room";
+    : level === "apartment" ? "apartment" : "room";
 
   const [form, setForm] = useStateAm({
     name: init?.name || "",
@@ -211,12 +211,10 @@ function AmenityCard({ amenity, onEdit, onRemove }) {
         </div>
       </div>
       <div className="amen-acts">
-        <button className="btn btn-sm btn-icon amen-act-edit" title="Edit amenity" onClick={onEdit}>
-          <AIcon name="edit" size={14} />
-        </button>
-        <button className="btn btn-sm btn-icon amen-act-remove" title="Remove amenity" onClick={onRemove}>
-          <AIcon name="trash" size={14} />
-        </button>
+        <ActionMenu items={[
+          { label: "Edit",   icon: "edit",  onClick: onEdit },
+          { label: "Delete", icon: "trash", danger: true, onClick: onRemove },
+        ]} />
       </div>
     </div>
   );
@@ -228,9 +226,9 @@ const EMPTY_CFG = {
     heading: "No building amenities added yet",
     body: "Add building-level amenities such as parking, elevator, security, gym, or rooftop.",
   },
-  unit: {
-    heading: "No unit amenities added yet",
-    body: "Add unit-level amenities such as balcony, kitchen, AC, washer, or furnished setup.",
+  apartment: {
+    heading: "No apartment amenities added yet",
+    body: "Add apartment-level amenities such as balcony, kitchen, AC, washer, or furnished setup.",
   },
   room: {
     heading: "No room amenities added yet",
@@ -247,7 +245,7 @@ function AmenityManager({
   const closeModal = () => setModal(null);
 
   const levelLabel = level === "building" ? "building"
-    : level === "unit" ? "unit" : "room";
+    : level === "apartment" ? "apartment" : "room";
   const empty = EMPTY_CFG[level] || {};
 
   // trigger add modal from parent (e.g. action menu)

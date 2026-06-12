@@ -97,14 +97,15 @@ function App() {
           <div className="page-head">
             <div className="ph-left">
               <h1 className="h1">Properties</h1>
-              <p>Manage buildings, units, rooms, amenities, financials, and activity.</p>
+              <p>Manage buildings, apartments, rooms, amenities, financials, and activity.</p>
             </div>
-            <div className="ph-actions">
-              <button className="btn btn-soft"><AIcon name="download" size={16} /> Export</button>
-              <button className="btn btn-primary" onClick={() => setShowAddBuilding(true)}>
-                <AIcon name="plus" size={16} /> Add building
-              </button>
-            </div>
+            {tab === "properties" && !building && (
+              <div className="ph-actions">
+                <button className="btn btn-primary" onClick={() => setShowAddBuilding(true)}>
+                  <AIcon name="plus" size={16} /> Add building
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="tabs">
