@@ -80,20 +80,30 @@ function IconPicker({ value, onChange }) {
   );
 }
 
-/* ─── AmenityModal (add + edit) ─────────────────────────────────────────────── */
+/* ─── AmenityModal ──────────────────────────────────────────────────────────────
+   edit mode  — detail form for a single amenity (unchanged behaviour)
+   add mode   — assign existing amenities from the level catalog (multi-select)
+                with an inline "create new amenity" form; onSave receives an ARRAY */
 function AmenityModal({ mode, level, contextPath, amenity: init, existingNames, onSave, onClose }) {
   const isEdit = mode === "edit";
   const levelLabel = level === "building" ? "building"
     : level === "apartment" ? "apartment" : "room";
 
-  const [form, setForm] = useStateAm({
+  const catalog = (window.AMENITY_CATALOG && AMENITY_CATALOG[level]) || [];
+  const already = existingNames || [];
+  const blankForm = { name:"", category:"", icon:"sparkle", description:"", status:"Available", notes:"" };
+
+  const [selected, setSelected] = useStateAm([]);
+  const [custom, setCustom]     = useStateAm([]);
+  const [showNew, setShowNew]   = useStateAm(false);
+  const [form, setForm] = useStateAm(isEdit ? {
     name: init?.name || "",
     category: init?.category || "",
     icon: init?.icon || "sparkle",
     description: init?.description || "",
     status: init?.status || "Available",
     notes: init?.notes || "",
-  });
+  } : blankForm);
   const [nameErr, setNameErr] = useStateAm("");
 
   const set = (k, v) => {
@@ -101,29 +111,108 @@ function AmenityModal({ mode, level, contextPath, amenity: init, existingNames, 
     if (k === "name") setNameErr("");
   };
 
-  const valid = form.name.trim().length > 0;
+  const fromCatalog = (n) => ({
+    name: n, category: "", icon: (window.AMENITY_ICONS || {})[n] || "sparkle",
+    description: "", status: "Available", notes: "",
+  });
+
+  const isDup = (lc) =>
+    already.includes(lc) ||
+    selected.some(s => s.toLowerCase() === lc) ||
+    custom.some(c => c.name.toLowerCase() === lc);
+
+  const toggleCatalog = (n) =>
+    setSelected(p => p.includes(n) ? p.filter(x => x !== n) : [...p, n]);
+
+  const addCustom = () => {
+    const nm = form.name.trim();
+    if (!nm) { setNameErr("Amenity name is required."); return; }
+    const lc = nm.toLowerCase();
+    if (isDup(lc)) { setNameErr("This amenity already exists."); return; }
+    const match = catalog.find(x => x.toLowerCase() === lc);
+    if (match) setSelected(p => [...p, match]);
+    else setCustom(p => [...p, { ...form, name: nm }]);
+    setForm(blankForm);
+  };
+
+  const pendingName = !isEdit && showNew ? form.name.trim() : "";
+  const totalToAdd = selected.length + custom.length + (pendingName ? 1 : 0);
+  const canSave = isEdit ? form.name.trim().length > 0 : totalToAdd > 0;
 
   const handleSave = () => {
-    if (!valid) { setNameErr("Amenity name is required."); return; }
-    const lc = form.name.trim().toLowerCase();
-    if ((existingNames || []).includes(lc)) {
-      setNameErr("This amenity already exists.");
+    if (isEdit) {
+      if (!form.name.trim()) { setNameErr("Amenity name is required."); return; }
+      if (already.includes(form.name.trim().toLowerCase())) { setNameErr("This amenity already exists."); return; }
+      onSave({ ...form, name: form.name.trim() });
+      onClose();
       return;
     }
-    onSave({ ...form, name: form.name.trim() });
+    const items = [...selected.map(fromCatalog), ...custom];
+    if (pendingName) {
+      const lc = pendingName.toLowerCase();
+      if (isDup(lc)) { setNameErr("This amenity already exists."); return; }
+      const match = catalog.find(x => x.toLowerCase() === lc);
+      items.push(match ? fromCatalog(match) : { ...form, name: pendingName });
+    }
+    if (!items.length) return;
+    /* newly created amenities become part of the level catalog for next time */
+    items.forEach(it => {
+      if (!catalog.some(x => x.toLowerCase() === it.name.toLowerCase())) catalog.push(it.name);
+    });
+    onSave(items);
     onClose();
   };
+
+  const newAmenityFields = (
+    <React.Fragment>
+      <div className="modal-2col">
+        <div className="field">
+          <label>Amenity name *</label>
+          <input className={"inp" + (nameErr ? " inp-err" : "")}
+            placeholder="e.g. Rooftop access, Gym"
+            value={form.name} onChange={e => set("name", e.target.value)} />
+          {nameErr && <div className="field-error">{nameErr}</div>}
+        </div>
+        <div className="field">
+          <label>Category</label>
+          <select className="inp" value={form.category} onChange={e => set("category", e.target.value)}>
+            <option value="">No category</option>
+            {AMENITY_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="modal-2col">
+        <div className="field">
+          <label>Availability</label>
+          <select className="inp" value={form.status} onChange={e => set("status", e.target.value)}>
+            {AMENITY_STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label>Description</label>
+          <input className="inp" placeholder="Short description (optional)" value={form.description} onChange={e => set("description", e.target.value)} />
+        </div>
+      </div>
+      <div className="modal-section-title" style={{ marginTop: 4 }}>
+        Icon
+        <span style={{ fontWeight: 400, opacity: .6, marginLeft: 8 }}>
+          — {AMENITY_ICON_LIST.find(x => x.k === form.icon)?.l || form.icon}
+        </span>
+      </div>
+      <IconPicker value={form.icon} onChange={v => set("icon", v)} />
+    </React.Fragment>
+  );
 
   return (
     <ModalPortal onClose={onClose}>
       <div className="modal-head">
-        <h2>{isEdit ? "Edit " + levelLabel + " amenity" : "Add " + levelLabel + " amenity"}</h2>
+        <h2>{isEdit ? "Edit " + levelLabel + " amenity" : "Add " + levelLabel + " amenities"}</h2>
         <button className="mh-close" onClick={onClose} aria-label="Close"><AIcon name="x" size={18} /></button>
       </div>
       {contextPath && (
         <div className="modal-ctx">
           <span className="cx-ic"><AIcon name="sparkle" size={14} /></span>
-          {isEdit ? "Editing amenity for" : "Adding amenity to"}:
+          {isEdit ? "Editing amenity for" : "Adding amenities to"}:
           {contextPath.split(" / ").map((seg, i, arr) => (
             <React.Fragment key={i}>
               {i > 0 && <span style={{ opacity: .4 }}>/</span>}
@@ -133,64 +222,84 @@ function AmenityModal({ mode, level, contextPath, amenity: init, existingNames, 
         </div>
       )}
 
-      <div className="modal-body">
-        {/* Name + Category */}
-        <div className="modal-section">
-          <div className="modal-section-title">Amenity details</div>
-          <div className="modal-2col">
+      {isEdit ? (
+        <div className="modal-body">
+          <div className="modal-section">
+            <div className="modal-section-title">Amenity details</div>
+            {newAmenityFields}
             <div className="field">
-              <label>Amenity name *</label>
-              <input className={"inp" + (nameErr ? " inp-err" : "")}
-                placeholder="e.g. Rooftop access, Gym"
-                value={form.name} onChange={e => set("name", e.target.value)} />
-              {nameErr && <div className="field-error">{nameErr}</div>}
-            </div>
-            <div className="field">
-              <label>Category</label>
-              <select className="inp" value={form.category} onChange={e => set("category", e.target.value)}>
-                <option value="">No category</option>
-                {AMENITY_CATS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <label>Notes</label>
+              <textarea className="inp" rows="2" placeholder="Any additional notes…" value={form.notes} onChange={e => set("notes", e.target.value)} />
             </div>
           </div>
-          <div className="modal-2col">
-            <div className="field">
-              <label>Availability</label>
-              <select className="inp" value={form.status} onChange={e => set("status", e.target.value)}>
-                {AMENITY_STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label>Description</label>
-              <input className="inp" placeholder="Short description (optional)" value={form.description} onChange={e => set("description", e.target.value)} />
-            </div>
-          </div>
-          <div className="field">
-            <label>Notes</label>
-            <textarea className="inp" rows="2" placeholder="Any additional notes…" value={form.notes} onChange={e => set("notes", e.target.value)} />
-          </div>
+          <div style={{ height: 6 }} />
         </div>
-
-        {/* Icon picker */}
-        <div className="modal-section">
-          <div className="modal-section-title">
-            Icon
-            <span style={{ fontWeight: 400, opacity: .6, marginLeft: 8 }}>
-              — {AMENITY_ICON_LIST.find(x => x.k === form.icon)?.l || form.icon}
-            </span>
+      ) : (
+        <div className="modal-body">
+          {/* Pick from existing catalog */}
+          <div className="modal-section">
+            <div className="modal-section-title">
+              Choose amenities <span style={{ fontWeight: 400, opacity: .7 }}>— {selected.length + custom.length} selected</span>
+            </div>
+            <div className="amen-chips">
+              {catalog.map(a => {
+                const added = already.includes(a.toLowerCase());
+                const on = selected.includes(a);
+                return (
+                  <button key={a} type="button"
+                    className={"chip" + ((on || added) ? " on" : "")}
+                    disabled={added} title={added ? "Already added" : undefined}
+                    style={added ? { opacity: .45, cursor: "default" } : undefined}
+                    onClick={() => toggleCatalog(a)}>
+                    {(on || added) && <AIcon name="check" size={12} />}{a}
+                  </button>
+                );
+              })}
+              {custom.map(c => (
+                <button key={c.name} type="button" className="chip on" title="Remove from selection"
+                  onClick={() => setCustom(p => p.filter(x => x.name !== c.name))}>
+                  <AIcon name="check" size={12} />{c.name}
+                </button>
+              ))}
+            </div>
+            <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--muted)" }}>
+              Greyed-out amenities are already added to this {levelLabel}.
+            </p>
           </div>
-          <IconPicker value={form.icon} onChange={v => set("icon", v)} />
-        </div>
 
-        <div style={{ height: 6 }} />
-      </div>
+          {/* Create a brand-new amenity */}
+          <div className="modal-section">
+            {!showNew ? (
+              <button type="button" className="btn btn-soft btn-sm" onClick={() => setShowNew(true)}>
+                <AIcon name="plus" size={14} /> Create new amenity
+              </button>
+            ) : (
+              <React.Fragment>
+                <div className="modal-section-title">New amenity</div>
+                {newAmenityFields}
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button type="button" className="btn btn-soft btn-sm"
+                    onClick={() => { setShowNew(false); setForm(blankForm); setNameErr(""); }}>
+                    Cancel
+                  </button>
+                  <button type="button" className="btn btn-soft btn-sm" onClick={addCustom}>
+                    <AIcon name="plus" size={13} /> Add to selection
+                  </button>
+                </div>
+              </React.Fragment>
+            )}
+          </div>
+
+          <div style={{ height: 6 }} />
+        </div>
+      )}
 
       <div className="modal-footer">
         <button className="btn btn-soft" onClick={onClose}>Cancel</button>
         <button className="btn btn-primary" onClick={handleSave}
-          disabled={!valid} style={{ opacity: valid ? 1 : .45 }}>
+          disabled={!canSave} style={{ opacity: canSave ? 1 : .45 }}>
           <AIcon name={isEdit ? "check" : "plus"} size={15} />
-          {isEdit ? "Save changes" : "Save amenity"}
+          {isEdit ? "Save changes" : "Add " + (totalToAdd || "") + (totalToAdd === 1 ? " amenity" : " amenities")}
         </button>
       </div>
     </ModalPortal>
@@ -260,8 +369,8 @@ function AmenityManager({
   const existingNamesForEdit = (editAmenity) =>
     amenities.filter(a => a.id !== editAmenity.id).map(a => a.name.toLowerCase());
 
-  const handleAdd = (form) => {
-    onAdd({ id: makeId(level), ...form });
+  const handleAdd = (items) => {
+    items.forEach(it => onAdd({ id: makeId(level), ...it }));
     closeModal();
   };
 
